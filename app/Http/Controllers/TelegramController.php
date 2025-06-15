@@ -12,12 +12,20 @@ use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
 
 class TelegramController extends Controller
 {
-    public function handle(Nutgram $bot, string $command): void
+      public function __invoke(Nutgram $bot): void
     {
-        match ($command){
-            '/start' => $this->start($bot),
-            '/register' => $this->store($bot),
-        };
+        $bot->onCommand('start', fn(Nutgram $bot) => $this->start($bot));
+        $bot->onCommand('register', fn(Nutgram $bot) => $this->store($bot));
+        $bot->onCommand('list', fn(Nutgram $bot) => $this->list($bot));
+
+        $bot->onCallbackQueryData('move_up_{id}', function (Nutgram $bot, $id) {
+            $this->moveOperatorUp($bot, (int)$id);
+        });
+
+        $bot->onCallbackQueryData('move_down_{id}', function (Nutgram $bot, $id) {
+            $this->moveOperatorDown($bot, (int)$id);
+        });
+
     }
 
     public function start(Nutgram $bot){
@@ -69,8 +77,9 @@ class TelegramController extends Controller
         foreach ($ordered as $index => $orderSort) {
             $operator = $orderSort->operator;
             $text .= ($index + 1) . ". 👤  {$operator->name}\n";
-
+            $count=$index+1;
             $keyboard->addRow(
+                InlineKeyboardButton::make("{$count}.{$operator->name}", callback_data: "noop"),
                 InlineKeyboardButton::make("🔼", callback_data: "move_up_{$operator->id}"),
                 InlineKeyboardButton::make("🔽", callback_data: "move_down_{$operator->id}"),
                 InlineKeyboardButton::make("📞", callback_data: "contact_operator_{$operator->id}")
@@ -138,7 +147,6 @@ function moveOperatorDown(Nutgram $bot, int $operatorId)
     public function normalizePosition(): void
     {
         $all = OrderSort::orderBy('position')->get();
-
         foreach ($all as $index => $item) {
             if ($item->position != $index) {
                 $item->position = $index;

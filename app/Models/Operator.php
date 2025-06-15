@@ -18,4 +18,9 @@ class Operator extends Model
     {
         return $this->hasOne(OrderSort::class, 'operator_id');
     }
+
+    public function lunchQueues()
+    {
+        return $this->hasMany(LunchQueue::class);
+    }
 }
