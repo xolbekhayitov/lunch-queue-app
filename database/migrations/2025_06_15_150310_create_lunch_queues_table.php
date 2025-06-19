@@ -6,24 +6,21 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
+
     public function up(): void
     {
         Schema::create('lunch_queues', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('operator_id')->constrained()->onDelete('cascade');
-            $table->date('date'); // Yozilgan kun
-            $table->enum('status', ['waiting', 'lunch', 'done'])->default('waiting');
-            $table->timestamp('lunch_started_at')->nullable();
+            $table->foreignId('operator_id')->constrained();
+            $table->integer('group_number');
+            $table->time('lunch_time_start');
+            $table->time('lunch_time_end');
+            $table->boolean('notified')->default(false);
             $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
+
     public function down(): void
     {
         Schema::dropIfExists('lunch_queues');

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\OperatorController;
 use Illuminate\Support\Facades\Route;
 use SergiX44\Nutgram\Nutgram;
 use App\Http\Controllers\TelegramController;
@@ -16,3 +17,5 @@ Route::post('/webhook', [TelegramController::class, 'handle'])
 //     $bot->registerCommand(TelegramController::class);
 //     $bot->run();
 // });
+
+Route::get('/operators',[OperatorController::class, 'index']);

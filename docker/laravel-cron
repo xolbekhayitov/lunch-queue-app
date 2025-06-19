@@ -1,0 +1,2 @@
+* 18 * * * cd /home/user/Desktop/Najot_Talim/NT4/Lunch_queue/lunch-queue-app && docker exec -it customer-app bash php artisan schedule:run >> /home/user/Desktop/Najot_Talim/NT4/Lunch_queue/lunch-queue-app/cron.log 2>&1
+

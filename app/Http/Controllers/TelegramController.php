@@ -9,14 +9,19 @@ use SergiX44\Nutgram\Nutgram;
 use Illuminate\Database\Eloquent\Model;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
+use App\Models\LunchQueue;
+use Carbon\Carbon;
 
 class TelegramController extends Controller
 {
-      public function __invoke(Nutgram $bot): void
+      public function handle(Nutgram $bot): void
     {
         $bot->onCommand('start', fn(Nutgram $bot) => $this->start($bot));
         $bot->onCommand('register', fn(Nutgram $bot) => $this->store($bot));
         $bot->onCommand('list', fn(Nutgram $bot) => $this->list($bot));
+        $bot->onCommand('buildqueue', fn(Nutgram $bot) => $this->buildQueue($bot));
+        $bot->onCommand('notifyqueue', fn(Nutgram $bot) => $this->notifyUsers($bot));
+
 
         $bot->onCallbackQueryData('move_up_{id}', function (Nutgram $bot, $id) {
             $this->moveOperatorUp($bot, (int)$id);
@@ -25,6 +30,8 @@ class TelegramController extends Controller
         $bot->onCallbackQueryData('move_down_{id}', function (Nutgram $bot, $id) {
             $this->moveOperatorDown($bot, (int)$id);
         });
+
+        $bot->run();
 
     }
 
@@ -35,11 +42,6 @@ class TelegramController extends Controller
                 /list
                 /register
             ",
-            reply_markup: InlineKeyboardMarkup::make()
-                ->addRow(
-                    InlineKeyboardButton::make('A', callback_data: 'type:a'),
-                    InlineKeyboardButton::make('B', callback_data: 'type:b')
-                )
         );
     }
 
@@ -62,7 +64,7 @@ class TelegramController extends Controller
         $bot->sendMessage("✅ Ro‘yxatdan o‘tildi");
     }
 
-    public function list(Nutgram $bot, bool $edit = false){
+    public function list(Nutgram $bot){
 
          $ordered = OrderSort::with('operator')->orderBy('position')->get();
 
@@ -76,27 +78,21 @@ class TelegramController extends Controller
 
         foreach ($ordered as $index => $orderSort) {
             $operator = $orderSort->operator;
-            $text .= ($index + 1) . ". 👤  {$operator->name}\n";
+            // $text .= ($index + 1) . ". 👤  {$operator->name}\n";
             $count=$index+1;
             $keyboard->addRow(
                 InlineKeyboardButton::make("{$count}.{$operator->name}", callback_data: "noop"),
                 InlineKeyboardButton::make("🔼", callback_data: "move_up_{$operator->id}"),
                 InlineKeyboardButton::make("🔽", callback_data: "move_down_{$operator->id}"),
-                InlineKeyboardButton::make("📞", callback_data: "contact_operator_{$operator->id}")
             );
         }
 
-        if($edit){
-            $bot->editMessageText(
+
+        $bot->sendMessage(
             text: $text,
             reply_markup: $keyboard
         );
-        }else{
-            $bot->sendMessage(
-                text: $text,
-                reply_markup: $keyboard
-            );
-        }
+
     }
 
     function moveOperatorUp(Nutgram $bot, int $operatorId)
@@ -117,11 +113,11 @@ class TelegramController extends Controller
         }
 
         $this->normalizePosition();
-        $this->list($bot, edit: true);
+        $this->list($bot);
 
     }
 
-function moveOperatorDown(Nutgram $bot, int $operatorId)
+    function moveOperatorDown(Nutgram $bot, int $operatorId)
     {
 
         $bot->answerCallbackQuery();
@@ -140,7 +136,7 @@ function moveOperatorDown(Nutgram $bot, int $operatorId)
         }
 
         $this->normalizePosition();
-        $this->list($bot, edit: true);
+        $this->list($bot);
 
     }
 
@@ -148,10 +144,53 @@ function moveOperatorDown(Nutgram $bot, int $operatorId)
     {
         $all = OrderSort::orderBy('position')->get();
         foreach ($all as $index => $item) {
-            if ($item->position != $index) {
-                $item->position = $index;
-                $item->update();
+            $item->update(['position' => $index + 1]);
+        }
+    }
+
+    public function buildQueue(Nutgram $bot)
+        {
+        $operator = Operator::where('chat_id', $bot->chatId())->first();
+
+        if (!$operator || !$operator->is_supervisor) {
+            $bot->sendMessage("❌ Sizda bu amal uchun ruxsat yo‘q.");
+            return;
+        }
+
+        $allOperators = Operator::where('is_supervisor', false)->get();
+        $groupSize = 5;
+        $start = Carbon::createFromTime(12, 0);
+        $interval = 15; // daqiqa
+        $groupCount = ceil($allOperators->count() / $groupSize);
+
+        LunchQueue::truncate(); // eski navbatni tozalash
+
+        $index = 0;
+        foreach ($allOperators->chunk($groupSize) as $groupIndex => $group) {
+            $timeStart = $start->copy()->addMinutes($groupIndex * $interval);
+            $timeEnd = $timeStart->copy()->addMinutes($interval);
+
+            foreach ($group as $operator) {
+                LunchQueue::create([
+                    'operator_id' => $operator->id,
+                    'group_number' => $groupIndex + 1,
+                    'lunch_time_start' => $timeStart->format('H:i'),
+                    'lunch_time_end' => $timeEnd->format('H:i'),
+                ]);
             }
+        }
+
+        $bot->sendMessage("✅ Tushlik navbati tuzildi");
+    }
+    public function notifyUsers(Nutgram $bot)
+    {
+        $queues = LunchQueue::with('operator')->get();
+
+        foreach ($queues as $item) {
+            $bot->sendMessage(
+                text :    "👤 Hurmatli {$item->operator->name}, tushlik vaqtingiz: {$item->lunch_time_start} - {$item->lunch_time_end}",
+                chat_id:  $item->operator->chat_id
+            );
         }
     }
 

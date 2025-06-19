@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->bigInteger('chat_id');
+            $table->boolean('is_supervisor')->default(false);
             $table->timestamps();
         });
     }

@@ -10,15 +10,10 @@ class SupervisorSetting extends Model
     /** @use HasFactory<\Database\Factories\SupervisorSettingFactory> */
     use HasFactory;
 
-    protected $fillable = ['key', 'value'];
+    protected $fillable = [
+        'group_size',     // har guruhdagi odamlar soni (masalan: 5)
+        'lunch_start',    // ovqatlanish boshlanishi (masalan: '12:00')
+        'lunch_end',      // ovqatlanish tugashi (masalan: '13:00')
+    ];
 
-    public static function getValue($key, $default = null)
-    {
-        return static::where('key', $key)->value('value') ?? $default;
-    }
-
-    public static function setValue($key, $value)
-    {
-        return static::updateOrCreate(['key' => $key], ['value' => $value]);
-    }
 }

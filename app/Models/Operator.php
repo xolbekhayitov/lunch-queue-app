@@ -12,7 +12,8 @@ class Operator extends Model
 
     protected $fillable = [
         'name',
-        'chat_id'
+        'chat_id',
+        'is_supervisor'
     ];
     public function sort()
     {
